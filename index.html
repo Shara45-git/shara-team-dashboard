@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Reports Dashboard</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --bg-card: #ffffff;
+      --bg-card-alt: #f1f3f6;
+      --text: #1a1a1a;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --accent: #2563eb;
+      --green: #10b981;
+      --red: #ef4444;
+      --orange: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.45;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .container {
+      padding: 12px;
+      padding-bottom: 120px;
+    }
+
+    /* === HEADER === */
+    .header {
+      padding: 16px 12px 8px;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    .header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .header .subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .refresh-btn {
+      position: absolute;
+      top: 16px;
+      right: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .refresh-btn:active { transform: scale(0.95); }
+    .refresh-btn.loading { animation: spin 0.8s linear infinite; }
+    @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+    /* === TABS === */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      overflow-x: auto;
+      background: var(--bg);
+      position: sticky;
+      top: 60px;
+      z-index: 4;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      padding: 8px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .tab.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    /* === CARDS === */
+    .card {
+      background: var(--bg-card);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+    }
+    .card-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    /* === KPI === */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .kpi {
+      background: var(--bg-card);
+      border-radius: 14px;
+      padding: 12px;
+      border: 1px solid var(--border);
+    }
+    .kpi-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    .kpi-value {
+      font-size: 20px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-value.green { color: var(--green); }
+    .kpi-value.red { color: var(--red); }
+
+    /* === TABLE === */
+    .table-wrap {
+      background: var(--bg-card);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      background: var(--bg-card-alt);
+      padding: 10px 8px;
+      text-align: right;
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border-bottom: 1px solid var(--border);
+    }
+    th:first-child { text-align: left; }
+    td {
+      padding: 9px 8px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      border-bottom: 1px solid var(--border);
+    }
+    td:first-child { text-align: left; font-weight: 500; }
+    tr:last-child td { border-bottom: none; }
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+
+    /* === BARS (mini chart) === */
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 100px;
+      padding: 8px 0;
+    }
+    .bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+    .bar {
+      width: 100%;
+      background: var(--accent);
+      border-radius: 4px 4px 0 0;
+      min-height: 2px;
+      transition: opacity 0.2s;
+    }
+    .bar.profit { background: var(--green); }
+    .bar.loss { background: var(--red); }
+    .bar-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* === STATES === */
+    .state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    .state.error {
+      color: var(--red);
+    }
+    .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+
+    /* === AGENCIES === */
+    .agency-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .agency-row:last-child { border-bottom: none; }
+    .agency-name { font-weight: 500; }
+    .agency-spend {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* === SCROLLABLE TABLE === */
+    .scroll-x { overflow-x: auto; }
+    .scroll-x table { min-width: 480px; }
+
+    /* === SYNC BUTTON (FAB) === */
+    .fab {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 24px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 10;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .fab:active { transform: translateX(-50%) scale(0.96); }
+    .fab:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .fab .fab-icon {
+      font-size: 16px;
+      display: inline-block;
+    }
+    .fab.syncing .fab-icon {
+      animation: spin 1s linear infinite;
+    }
+
+    /* === SYNC OVERLAY === */
+    .sync-overlay {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 9;
+      display: none;
+      max-width: calc(100vw - 32px);
+      text-align: center;
+    }
+    .sync-overlay.show { display: block; }
+    .sync-overlay.error {
+      background: #fef2f2;
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .sync-overlay.success {
+      background: #ecfdf5;
+      border-color: var(--green);
+      color: var(--green);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 Dashboard</h1>
+    <div class="subtitle" id="subtitle">Загружаю...</div>
+    <button class="refresh-btn" id="refreshBtn" onclick="refresh()">↻</button>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab" data-tab="monthly">Месяцы</div>
+    <div class="tab" data-tab="overview">Обзор</div>
+    <div class="tab" data-tab="daily">Дни</div>
+    <div class="tab" data-tab="agencies">Агентства</div>
+    <div class="tab" data-tab="team">Команда</div>
+  </div>
+
+  <div class="container" id="content">
+    <div class="state"><div class="spinner"></div><div>Загружаю данные...</div></div>
+  </div>
+
+  <div class="sync-overlay" id="syncOverlay"></div>
+  <button class="fab" id="syncFab" onclick="triggerSync()">
+    <span class="fab-icon">🔄</span>
+    <span class="fab-label">Обновить данные</span>
+  </button>
+
+  <script>
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      // Если у пользователя тёмная тема — переключаем
+      if (tg.colorScheme === 'dark') {
+        document.documentElement.style.setProperty('--bg', '#0f1217');
+        document.documentElement.style.setProperty('--bg-card', '#1a1f28');
+        document.documentElement.style.setProperty('--bg-card-alt', '#242a36');
+        document.documentElement.style.setProperty('--text', '#f1f3f6');
+        document.documentElement.style.setProperty('--text-muted', '#8a93a3');
+        document.documentElement.style.setProperty('--border', '#2a313d');
+      }    }
+
+    // === API_URL === жёстко на Apps Script Web App (GitHub Pages версия Mini App)
+    // Сюда вписать твой production URL Apps Script (заканчивается на /exec)
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxtiga0_GJRct13tO_3qP4H2uVvGXk-3H6iXVZmgF6ieEeMDSczDqy2MUTowGjAew/exec';
+
+    // initData нельзя кешировать в const на старте — Telegram может ещё не инициализировать его.
+    // Читаем заново каждый раз.
+    function getInitData() {
+      const t = window.Telegram && window.Telegram.WebApp;
+      return (t && t.initData) || '';
+    }
+
+    let currentTab = 'monthly';
+    let cache = {};
+
+    // ============================
+    // API через POST с text/plain
+    // ============================
+    async function apiCall(action, extraParams) {
+      const initData = getInitData();
+      const body = Object.assign({
+        _mini: '1',
+        action: action,
+        initData: initData
+      }, extraParams || {});
+
+      let bodyStr;
+      try {
+        bodyStr = JSON.stringify(body);
+      } catch (e) {
+        throw new Error('JSON.stringify failed: ' + e.message + ' | initData len=' + initData.length);
+      }
+
+      let resp;
+      try {
+        resp = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: bodyStr,
+          redirect: 'follow'
+        });
+      } catch (e) {
+        // Диагностика — показываем что было передано (без чувствительных данных)
+        const initDataPreview = initData.slice(0, 80);
+        const initDataLen = initData.length;
+        throw new Error(
+          'fetch failed: ' + (e.message || String(e)) +
+          ' | URL: ' + API_URL.slice(0, 80) +
+          ' | bodyLen: ' + bodyStr.length +
+          ' | initDataLen: ' + initDataLen +
+          ' | initDataStart: ' + initDataPreview
+        );
+      }
+
+      if (!resp.ok) {
+        throw new Error('HTTP ' + resp.status);
+      }
+
+      const text = await resp.text();
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        throw new Error('Bad JSON (' + text.length + ' chars). First 300: ' + text.slice(0, 300));
+      }
+    }
+
+    async function fetchData(kind) {
+      const initData = getInitData();
+      if (!initData) throw new Error('initData пустой (открыто не из Telegram?)');
+      const json = await apiCall('data', { kind: kind });
+      if (!json || !json.ok) {
+        const err = json && json.error ? json.error : 'unknown';
+        const reason = json && json.reason ? ': ' + json.reason : '';
+        throw new Error(err + reason);
+      }
+      return json.data;
+    }
+
+    function setSubtitle(text) {
+      document.getElementById('subtitle').textContent = text;
+    }
+
+    function showLoading() {
+      document.getElementById('content').innerHTML =
+        '<div class="state"><div class="spinner"></div><div>Загружаю данные...</div></div>';
+    }
+
+    function showError(msg) {
+      document.getElementById('content').innerHTML =
+        '<div class="state error" style="text-align:left;font-family:monospace;font-size:11px;white-space:pre-wrap;padding:16px;word-break:break-all">⚠️ ' + msg + '</div>';
+    }
+
+    function fmtMoney(n) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      const abs = Math.abs(n);
+      if (abs >= 1000) return n.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + '$';
+      return n.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + '$';
+    }
+
+    function fmtRoi(n) {
+      if (n === null || n === undefined || isNaN(n) || n === '') return '—';
+      return n.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + '%';
+    }
+
+    function fmtNum(n) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      return n.toLocaleString('ru-RU');
+    }
+
+    function sign(n) {
+      if (n > 0) return 'pos';
+      if (n < 0) return 'neg';
+      return '';
+    }
+
+    // ============================
+    // RENDER: OVERVIEW
+    // ============================
+    function renderOverview(d) {
+      const t = d.total || {};
+      const monthly = d.monthly || [];
+      const last7 = d.last7 || [];
+
+      let html = '';
+
+      // KPI всего за всё время
+      html += '<div class="card-title" style="padding-left:4px;margin-bottom:8px">Всё время</div>';
+      html += '<div class="kpi-grid">';
+      html += '<div class="kpi"><div class="kpi-label">Доход</div><div class="kpi-value">' + fmtMoney(t.income) + '</div></div>';
+      html += '<div class="kpi"><div class="kpi-label">Spend</div><div class="kpi-value">' + fmtMoney(t.spend) + '</div></div>';
+      html += '<div class="kpi"><div class="kpi-label">Profit</div><div class="kpi-value ' + sign(t.profit) + '">' + fmtMoney(t.profit) + '</div></div>';
+      html += '<div class="kpi"><div class="kpi-label">ROI</div><div class="kpi-value ' + sign(t.roi) + '">' + fmtRoi(t.roi) + '</div></div>';
+      html += '</div>';
+
+      // График Profit по месяцам
+      if (monthly.length) {
+        const maxAbs = Math.max.apply(null, monthly.map(m => Math.abs(m.profit || 0))) || 1;
+        html += '<div class="card"><div class="card-title">Profit по месяцам</div>';
+        html += '<div class="bar-chart">';
+        monthly.forEach(m => {
+          const h = Math.max(2, Math.round((Math.abs(m.profit) / maxAbs) * 80));
+          const cls = m.profit >= 0 ? 'profit' : 'loss';
+          html += '<div class="bar-col">' +
+                  '<div class="bar ' + cls + '" style="height:' + h + 'px" title="' + fmtMoney(m.profit) + '"></div>' +
+                  '<div class="bar-label">' + m.month.slice(5) + '</div>' +
+                  '</div>';
+        });
+        html += '</div></div>';
+      }
+
+      // Последние 7 дней
+      if (last7.length) {
+        html += '<div class="card"><div class="card-title">Последние 7 дней</div>';
+        html += '<table style="width:100%">';
+        html += '<thead><tr><th>Дата</th><th>Spend</th><th>Доход</th><th>Profit</th></tr></thead><tbody>';
+        last7.forEach(r => {
+          html += '<tr>' +
+                  '<td>' + r.date.slice(5) + '</td>' +
+                  '<td>' + fmtMoney(r.spend) + '</td>' +
+                  '<td>' + fmtMoney(r.income) + '</td>' +
+                  '<td class="' + sign(r.profit) + '">' + fmtMoney(r.profit) + '</td>' +
+                  '</tr>';
+        });
+        html += '</tbody></table></div>';
+      }
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    // ============================
+    // RENDER: MONTHLY
+    // ============================
+    function renderMonthly(d) {
+      const rows = d.rows || [];
+      if (!rows.length) {
+        document.getElementById('content').innerHTML = '<div class="state">Нет данных</div>';
+        return;
+      }
+
+      const totals = rows.reduce((acc, r) => {
+        acc.spend += r.spend || 0;
+        acc.income += r.income || 0;
+        acc.profit += r.profit || 0;
+        return acc;
+      }, { spend: 0, income: 0, profit: 0 });
+      totals.roi = totals.spend > 0 ? (totals.profit / totals.spend) * 100 : 0;
+
+      let html = '';
+
+      // Сводка по всем месяцам
+      html += '<div class="kpi-grid">';
+      html += '<div class="kpi"><div class="kpi-label">Доход</div><div class="kpi-value">' + fmtMoney(totals.income) + '</div></div>';
+      html += '<div class="kpi"><div class="kpi-label">Spend</div><div class="kpi-value">' + fmtMoney(totals.spend) + '</div></div>';
+      html += '<div class="kpi"><div class="kpi-label">Profit</div><div class="kpi-value ' + sign(totals.profit) + '">' + fmtMoney(totals.profit) + '</div></div>';
+      html += '<div class="kpi"><div class="kpi-label">ROI</div><div class="kpi-value ' + sign(totals.roi) + '">' + fmtRoi(totals.roi) + '</div></div>';
+      html += '</div>';
+
+      // Таблица по месяцам
+      html += '<div class="table-wrap scroll-x"><table>';
+      html += '<thead><tr><th>Месяц</th><th>Spend</th><th>Доход</th><th>Profit</th><th>ROI</th></tr></thead><tbody>';
+      rows.slice().reverse().forEach(r => {
+        html += '<tr>' +
+                '<td>' + r.month + '</td>' +
+                '<td>' + fmtMoney(r.spend) + '</td>' +
+                '<td>' + fmtMoney(r.income) + '</td>' +
+                '<td class="' + sign(r.profit) + '">' + fmtMoney(r.profit) + '</td>' +
+                '<td class="' + sign(r.roi) + '">' + fmtRoi(r.roi) + '</td>' +
+                '</tr>';
+      });
+      html += '</tbody></table></div>';
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    // ============================
+    // RENDER: DAILY
+    // ============================
+    function renderDaily(d) {
+      const rows = (d.rows || []).slice().reverse(); // от свежих к старым
+      if (!rows.length) {
+        document.getElementById('content').innerHTML = '<div class="state">Нет данных</div>';
+        return;
+      }
+
+      let html = '<div class="table-wrap scroll-x"><table>';
+      html += '<thead><tr><th>Дата</th><th>Spend</th><th>Доход</th><th>Profit</th><th>ROI</th></tr></thead><tbody>';
+      rows.forEach(r => {
+        html += '<tr>' +
+                '<td>' + r.date.slice(5) + '</td>' +
+                '<td>' + fmtMoney(r.spend) + '</td>' +
+                '<td>' + fmtMoney(r.income) + '</td>' +
+                '<td class="' + sign(r.profit) + '">' + fmtMoney(r.profit) + '</td>' +
+                '<td class="' + sign(r.roi) + '">' + fmtRoi(r.roi) + '</td>' +
+                '</tr>';
+      });
+      html += '</tbody></table></div>';
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    // ============================
+    // RENDER: AGENCIES
+    // ============================
+    function renderAgencies(d) {
+      const rows = d.rows || [];
+      const byAgency = d.byAgency || {};
+
+      if (!rows.length) {
+        document.getElementById('content').innerHTML = '<div class="state">Нет данных</div>';
+        return;
+      }
+
+      let html = '';
+
+      // Всего по агентствам
+      const totals = Object.keys(byAgency).map(name => ({ name: name, spend: byAgency[name] }));
+      totals.sort((a, b) => b.spend - a.spend);
+
+      html += '<div class="card"><div class="card-title">Всего по агентствам</div>';
+      totals.forEach(t => {
+        html += '<div class="agency-row">' +
+                '<div class="agency-name">' + t.name + '</div>' +
+                '<div class="agency-spend">' + fmtMoney(t.spend) + '</div>' +
+                '</div>';
+      });
+      html += '</div>';
+
+      // Группировка по месяцам
+      const months = {};
+      rows.forEach(r => {
+        if (!months[r.month]) months[r.month] = [];
+        months[r.month].push(r);
+      });
+
+      Object.keys(months).sort().reverse().forEach(month => {
+        const items = months[month].slice().sort((a, b) => b.spend - a.spend);
+        const monthTotal = items.reduce((s, r) => s + r.spend, 0);
+
+        html += '<div class="card">' +
+                '<div class="card-title">' + month + ' — ' + fmtMoney(monthTotal) + '</div>';
+        items.forEach(r => {
+          html += '<div class="agency-row">' +
+                  '<div class="agency-name">' + r.agency + '</div>' +
+                  '<div class="agency-spend">' + fmtMoney(r.spend) + '</div>' +
+                  '</div>';
+        });
+        html += '</div>';
+      });
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    // ============================
+    // RENDER: TEAM
+    // ============================
+    function renderTeam(d) {
+      const rows = d.rows || [];
+      if (!rows.length) {
+        document.getElementById('content').innerHTML = '<div class="state">Нет данных</div>';
+        return;
+      }
+
+      // Группируем по месяцам
+      const months = {};
+      rows.forEach(r => {
+        if (!months[r.month]) months[r.month] = [];
+        months[r.month].push(r);
+      });
+
+      let html = '';
+
+      Object.keys(months).sort().reverse().forEach(month => {
+        const items = months[month].slice().sort((a, b) => (b.profit || 0) - (a.profit || 0));
+
+        const t = items.reduce((acc, r) => {
+          acc.spend += r.spend || 0;
+          acc.profit += r.profit || 0;
+          acc.revenue += r.revenue || 0;
+          return acc;
+        }, { spend: 0, profit: 0, revenue: 0 });
+        const roi = t.spend > 0 ? (t.revenue / t.spend) * 100 : 0;
+
+        html += '<div class="card">' +
+                '<div class="card-title">' + month + ' — итого Revenue ' +
+                '<span class="' + sign(t.revenue) + '">' + fmtMoney(t.revenue) + '</span> · ROI ' +
+                '<span class="' + sign(roi) + '">' + fmtRoi(roi) + '</span></div>';
+
+        html += '<div class="scroll-x"><table>';
+        html += '<thead><tr><th>Баер</th><th>Доход</th><th>Spend</th><th>Revenue</th><th>ROI</th></tr></thead><tbody>';
+        items.forEach(r => {
+          html += '<tr>' +
+                  '<td>' + r.buyer + '</td>' +
+                  '<td>' + fmtMoney(r.profit) + '</td>' +
+                  '<td>' + fmtMoney(r.spend) + '</td>' +
+                  '<td class="' + sign(r.revenue) + '">' + fmtMoney(r.revenue) + '</td>' +
+                  '<td class="' + sign(r.roi) + '">' + fmtRoi(r.roi) + '</td>' +
+                  '</tr>';
+        });
+        html += '</tbody></table></div>';
+        html += '</div>';
+      });
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    // ============================
+    // ROUTER
+    // ============================
+    async function loadTab(tab, forceRefresh) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach(el => {
+        el.classList.toggle('active', el.dataset.tab === tab);
+      });
+
+      if (!forceRefresh && cache[tab]) {
+        renderTab(tab, cache[tab]);
+        return;
+      }
+
+      showLoading();
+      setSubtitle('Загружаю...');
+
+      try {
+        const data = await fetchData(tab);
+        cache[tab] = data;
+        renderTab(tab, data);
+        setSubtitle('Обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
+      } catch (err) {
+        showError(err.message);
+        setSubtitle('Ошибка загрузки');
+      }
+    }
+
+    function renderTab(tab, data) {
+      if (tab === 'overview') renderOverview(data);
+      else if (tab === 'monthly') renderMonthly(data);
+      else if (tab === 'daily') renderDaily(data);
+      else if (tab === 'agencies') renderAgencies(data);
+      else if (tab === 'team') renderTeam(data);
+    }
+
+    function refresh() {
+      const btn = document.getElementById('refreshBtn');
+      btn.classList.add('loading');
+      cache = {};
+      loadTab(currentTab, true).finally(() => {
+        setTimeout(() => btn.classList.remove('loading'), 200);
+      });
+    }
+
+    // ============================
+    // SYNC FROM MINI APP
+    // ============================
+    let syncPollInterval = null;
+
+    function setOverlay(text, type) {
+      const el = document.getElementById('syncOverlay');
+      el.textContent = text;
+      el.className = 'sync-overlay show' + (type ? ' ' + type : '');
+    }
+
+    function hideOverlay() {
+      document.getElementById('syncOverlay').className = 'sync-overlay';
+    }
+
+    function setFabState(syncing) {
+      const fab = document.getElementById('syncFab');
+      const label = fab.querySelector('.fab-label');
+      const icon = fab.querySelector('.fab-icon');
+      fab.classList.toggle('syncing', syncing);
+      fab.disabled = syncing;
+      icon.textContent = syncing ? '⏳' : '🔄';
+      label.textContent = syncing ? 'Синхронизация...' : 'Обновить данные';
+    }
+
+    async function triggerSync() {
+      if (tg && tg.HapticFeedback) {
+        try { tg.HapticFeedback.impactOccurred('medium'); } catch (e) {}
+      }
+
+      setFabState(true);
+      setOverlay('Запускаю синхронизацию...');
+
+      try {
+        const json = await apiCall('trigger_sync');
+
+        if (!json || !json.ok) {
+          throw new Error(json && json.error ? json.error + (json.reason ? ': ' + json.reason : '') : 'unknown');
+        }
+
+        if (json.status === 'already_running') {
+          setOverlay('Синхронизация уже идёт, ожидаю...');
+        } else {
+          setOverlay('Синхронизация запущена. Обычно занимает 30-60 секунд.');
+        }
+
+        // Поллим статус каждые 5 секунд (макс 5 минут)
+        const startedPolling = Date.now();
+        const MAX_POLL_MS = 5 * 60 * 1000;
+
+        if (syncPollInterval) clearInterval(syncPollInterval);
+        syncPollInterval = setInterval(async () => {
+          if (Date.now() - startedPolling > MAX_POLL_MS) {
+            clearInterval(syncPollInterval);
+            syncPollInterval = null;
+            setFabState(false);
+            setOverlay('Превышено время ожидания. Проверь логи в Apps Script.', 'error');
+            setTimeout(hideOverlay, 6000);
+            return;
+          }
+
+          try {
+            const st = await apiCall('sync_status');
+            if (!st || !st.ok) return;
+
+            if (st.status === 'done') {
+              clearInterval(syncPollInterval);
+              syncPollInterval = null;
+              setFabState(false);
+              setOverlay('✓ Данные обновлены', 'success');
+              if (tg && tg.HapticFeedback) {
+                try { tg.HapticFeedback.notificationOccurred('success'); } catch (e) {}
+              }
+              setTimeout(hideOverlay, 3000);
+              cache = {};
+              loadTab(currentTab, true);
+            } else if (st.status === 'error') {
+              clearInterval(syncPollInterval);
+              syncPollInterval = null;
+              setFabState(false);
+              setOverlay('Ошибка: ' + (st.error || 'unknown'), 'error');
+              if (tg && tg.HapticFeedback) {
+                try { tg.HapticFeedback.notificationOccurred('error'); } catch (e) {}
+              }
+              setTimeout(hideOverlay, 8000);
+            }
+          } catch (err) {
+            // Сеть моргнула — игнорим
+          }
+        }, 5000);
+
+      } catch (err) {
+        setFabState(false);
+        setOverlay('Не удалось запустить: ' + err.message, 'error');
+        setTimeout(hideOverlay, 6000);
+      }
+    }
+
+    // ============================
+    // INIT
+    // ============================
+    document.querySelectorAll('.tab').forEach(el => {
+      el.addEventListener('click', () => loadTab(el.dataset.tab));
+    });
+
+    // Ждём пока появится initData (Telegram SDK иногда не успевает к загрузке)
+    async function waitForInitData(maxAttempts) {
+      maxAttempts = maxAttempts || 30; // 30 попыток * 100мс = 3 секунды максимум
+      for (let i = 0; i < maxAttempts; i++) {
+        if (getInitData()) return true;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      return false;
+    }
+
+    (async () => {
+      const hasInit = await waitForInitData();
+      if (!hasInit) {
+        const t = window.Telegram && window.Telegram.WebApp;
+        const lines = [];
+        lines.push('window.Telegram: ' + (window.Telegram ? 'есть' : 'НЕТ'));
+        lines.push('Telegram.WebApp: ' + (t ? 'есть' : 'НЕТ'));
+        if (t) {
+          lines.push('initData: "' + (t.initData || '') + '" (длина ' + (t.initData ? t.initData.length : 0) + ')');
+          lines.push('initDataUnsafe: ' + JSON.stringify(t.initDataUnsafe || {}, null, 2));
+          lines.push('version: ' + (t.version || '?'));
+          lines.push('platform: ' + (t.platform || '?'));
+          lines.push('colorScheme: ' + (t.colorScheme || '?'));
+          lines.push('isVerticalSwipesEnabled: ' + (t.isVerticalSwipesEnabled));
+        }
+        lines.push('--- URL ---');
+        lines.push('href: ' + window.location.href.slice(0, 200));
+        lines.push('--- UA ---');
+        lines.push(navigator.userAgent.slice(0, 200));
+
+        const html = '<div class="state error" style="text-align:left;font-family:monospace;font-size:11px;white-space:pre-wrap;padding:16px">'
+          + 'Диагностика initData:\n\n'
+          + lines.join('\n')
+          + '</div>';
+        document.getElementById('content').innerHTML = html;
+        setSubtitle('Диагностика');
+        return;
+      }
+      loadTab('monthly');
+    })();
+  </script>
+</body>
+</html>
