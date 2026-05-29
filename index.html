@@ -363,15 +363,36 @@
         document.documentElement.style.setProperty('--border', '#2a313d');
       }    }
 
-    // === API_URL === жёстко на Apps Script Web App (GitHub Pages версия Mini App)
-    // Сюда вписать твой production URL Apps Script (заканчивается на /exec)
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxtiga0_GJRct13tO_3qP4H2uVvGXk-3H6iXVZmgF6ieEeMDSczDqy2MUTowGjAew/exec';
+    // === API_URL === жёстко на Apps Script Web App (новый деплоймент)
+    // ВАЖНО: должно совпадать с URL текущего активного деплоймента в Manage deployments
+    const API_URL = 'https://script.google.com/macros/s/AKfycbx9Mn9cqcSGLp0crTm_MUXemHCGzPxtn5dxnf58-WzueQg0bwFqRfQ_uRFVlqXnmZQ/exec';
 
-    // initData нельзя кешировать в const на старте — Telegram может ещё не инициализировать его.
-    // Читаем заново каждый раз.
+    // initData достаём ИЗ ДВУХ ИСТОЧНИКОВ:
+    // 1. SDK telegram-web-app.js (если загрузился) — window.Telegram.WebApp.initData
+    // 2. Прямо из URL hash — Telegram передаёт #tgWebAppData=...&tgWebAppVersion=...
+    //    Если SDK не загрузился (например, заблокирован сетью), используем hash.
     function getInitData() {
+      // Приоритет 1: SDK
       const t = window.Telegram && window.Telegram.WebApp;
-      return (t && t.initData) || '';
+      if (t && t.initData) return t.initData;
+
+      // Приоритет 2: hash из URL
+      const hash = window.location.hash || '';
+      if (hash.indexOf('tgWebAppData=') !== -1) {
+        // hash вида: #tgWebAppData=XXX&tgWebAppVersion=YYY&...
+        const parts = hash.replace(/^#/, '').split('&');
+        for (let i = 0; i < parts.length; i++) {
+          const eqIdx = parts[i].indexOf('=');
+          if (eqIdx === -1) continue;
+          const k = parts[i].slice(0, eqIdx);
+          const v = parts[i].slice(eqIdx + 1);
+          if (k === 'tgWebAppData') {
+            try { return decodeURIComponent(v); } catch (e) { return v; }
+          }
+        }
+      }
+
+      return '';
     }
 
     let currentTab = 'monthly';
