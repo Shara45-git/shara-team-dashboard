@@ -458,7 +458,8 @@
         const reason = json && json.reason ? ' (' + json.reason + ')' : '';
         const message = json && json.message ? ': ' + json.message : '';
         const userId = json && json.userId ? ' [userId=' + json.userId + ']' : '';
-        throw new Error(err + reason + message + userId);
+        const stack = json && json.stack ? '\n\nStack: ' + json.stack : '';
+        throw new Error(err + reason + message + userId + stack);
       }
       return json.data;
     }
