@@ -353,6 +353,22 @@
     if (tg) {
       tg.ready();
       tg.expand();
+
+      // Отключаем закрытие Mini App свайпом вниз — мешает скроллу контента
+      // Доступно с Bot API 7.7 (Telegram >= 10.10)
+      try {
+        if (typeof tg.disableVerticalSwipes === 'function') {
+          tg.disableVerticalSwipes();
+        }
+      } catch (e) {}
+
+      // Просим Telegram спросить подтверждение перед закрытием (опционально)
+      try {
+        if (typeof tg.enableClosingConfirmation === 'function') {
+          // tg.enableClosingConfirmation(); // включи если хочешь подтверждение
+        }
+      } catch (e) {}
+
       // Если у пользователя тёмная тема — переключаем
       if (tg.colorScheme === 'dark') {
         document.documentElement.style.setProperty('--bg', '#0f1217');
@@ -361,7 +377,8 @@
         document.documentElement.style.setProperty('--text', '#f1f3f6');
         document.documentElement.style.setProperty('--text-muted', '#8a93a3');
         document.documentElement.style.setProperty('--border', '#2a313d');
-      }    }
+      }
+    }
 
     // === API_URL === жёстко на Apps Script Web App (новый деплоймент)
     // ВАЖНО: должно совпадать с URL текущего активного деплоймента в Manage deployments
